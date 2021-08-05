@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/completion"
+	compression "github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/podman/v2/cmd/podman/common"
 	"github.com/containers/podman/v2/cmd/podman/parse"
 	"github.com/containers/podman/v2/cmd/podman/registry"
@@ -62,7 +63,9 @@ var (
 )
 
 var (
-	saveOpts entities.ImageSaveOptions
+	saveOpts         entities.ImageSaveOptions
+	compressionAlg   string
+	compressionLevel int
 )
 
 func init() {
@@ -84,6 +87,8 @@ func saveFlags(cmd *cobra.Command) {
 	flags := cmd.Flags()
 
 	flags.BoolVar(&saveOpts.Compress, "compress", false, "Compress tarball image layers when saving to a directory using the 'dir' transport. (default is same compression type as source)")
+	flags.StringVar(&compressionAlg, "compression-alg", "", "Compress tarball layers with this algorithm. Valid algs are bzip2, gzip, xz, zstd")
+	flags.IntVar(&compressionLevel, "compression-level", 0, "Algorithm specific compression level to use.")
 
 	formatFlagName := "format"
 	flags.StringVar(&saveOpts.Format, formatFlagName, define.V2s2Archive, "Save image to oci-archive, oci-dir (directory with oci manifest type), docker-archive, docker-dir (directory with v2s2 manifest type)")
@@ -97,6 +102,20 @@ func saveFlags(cmd *cobra.Command) {
 	flags.BoolVarP(&saveOpts.MultiImageArchive, "multi-image-archive", "m", containerConfig.Engine.MultiImageArchive, "Interpret additional arguments as images not tags and create a multi-image-archive (only for docker-archive)")
 }
 
+func parseCompressionAlg(alg string) (*compression.Algorithm, error) {
+	switch alg {
+	case "bzip2":
+		return &compression.Bzip2, nil
+	case "gzip":
+		return &compression.Gzip, nil
+	case "xz":
+		return &compression.Xz, nil
+	case "zstd":
+		return &compression.Zstd, nil
+	}
+	return nil, errors.New("Invalid compression algorithm")
+}
+
 func save(cmd *cobra.Command, args []string) (finalErr error) {
 	var (
 		tags      []string
@@ -104,6 +123,16 @@ func save(cmd *cobra.Command, args []string) (finalErr error) {
 	)
 	if cmd.Flag("compress").Changed && (saveOpts.Format != define.OCIManifestDir && saveOpts.Format != define.V2s2ManifestDir && saveOpts.Format == "") {
 		return errors.Errorf("--compress can only be set when --format is either 'oci-dir' or 'docker-dir'")
+	}
+	if cmd.Flag("compression-alg").Changed {
+		var err error
+		saveOpts.CompressionAlgorithm, err = parseCompressionAlg(compressionAlg)
+		if err != nil {
+			return err
+		}
+	}
+	if cmd.Flag("compression-level").Changed {
+		saveOpts.CompressionLevel = &compressionLevel
 	}
 	if len(saveOpts.Output) == 0 {
 		saveOpts.Quiet = true

@@ -26,6 +26,8 @@ var (
 	pushDescription = `Pushes a source image to a specified destination.
 
 	The Image "DESTINATION" uses a "transport":"details" format. See podman-push(1) section "DESTINATION" for the expected format.`
+	pushCompressionAlg   string
+	pushCompressionLevel int
 
 	// Command: podman push
 	pushCmd = &cobra.Command{
@@ -86,6 +88,8 @@ func pushFlags(cmd *cobra.Command) {
 	_ = cmd.RegisterFlagCompletionFunc(certDirFlagName, completion.AutocompleteDefault)
 
 	flags.BoolVar(&pushOptions.Compress, "compress", false, "Compress tarball image layers when pushing to a directory using the 'dir' transport. (default is same compression type as source)")
+	flags.StringVar(&pushCompressionAlg, "compression-alg", "", "Compression algorithm for image layers. One of bzip2, gzip, xz, zstd")
+	flags.IntVar(&pushCompressionLevel, "compression-level", 0, "Algorithm specific compression level")
 
 	credsFlagName := "creds"
 	flags.StringVar(&pushOptions.CredentialsCLI, credsFlagName, "", "`Credentials` (USERNAME:PASSWORD) to use for authenticating to a registry")
@@ -151,7 +155,34 @@ func imagePush(cmd *cobra.Command, args []string) error {
 		pushOptions.Password = creds.Password
 	}
 
+	if cmd.Flags().Changed("compression-alg") {
+		alg, err := parseCompressionAlg(pushCompressionAlg)
+		if err != nil {
+			return err
+		}
+		pushOptions.CompressionAlgorithm = alg
+	}
+	if cmd.Flags().Changed("compression-level") {
+		pushOptions.CompressionLevel = &pushCompressionLevel
+	}
+
 	// Let's do all the remaining Yoga in the API to prevent us from scattering
 	// logic across (too) many parts of the code.
 	return registry.ImageEngine().Push(registry.GetContext(), source, destination, pushOptions.ImagePushOptions)
 }
+
+/* in another file.
+func parseCompressionAlg(alg string) (*compression.Algorithm, error) {
+	switch alg {
+	case "bzip2":
+		return &compression.Bzip2, nil
+	case "gzip":
+		return &compression.Gzip, nil
+	case "xz":
+		return &compression.Xz, nil
+	case "zstd":
+		return &compression.Zstd, nil
+	}
+	return nil, errors.New("Invalid compression algorithm")
+}
+*/

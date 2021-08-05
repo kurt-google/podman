@@ -5,6 +5,7 @@ import (
 
 	"github.com/containers/common/pkg/config"
 	"github.com/containers/image/v5/manifest"
+	compression "github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/types"
 	"github.com/containers/podman/v2/pkg/inspect"
 	"github.com/containers/podman/v2/pkg/trust"
@@ -177,6 +178,9 @@ type ImagePushOptions struct {
 	// transport. Default is same compression type as source. Ignored for remote
 	// calls.
 	Compress bool
+	// Algorithm to use when compressing layers for the image
+	CompressionAlgorithm *compression.Algorithm
+	CompressionLevel     *int
 	// Username for authenticating against the registry.
 	Username string
 	// Password for authenticating against the registry.
@@ -287,6 +291,9 @@ type ImageImportReport struct {
 type ImageSaveOptions struct {
 	// Compress layers when saving to a directory.
 	Compress bool
+	// Compress layers with these settings. Optional, use nil for defaults.
+	CompressionAlgorithm *compression.Algorithm
+	CompressionLevel     *int
 	// Format of saving the image: oci-archive, oci-dir (directory with oci
 	// manifest type), docker-archive, docker-dir (directory with v2s2
 	// manifest type).

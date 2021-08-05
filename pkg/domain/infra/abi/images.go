@@ -374,6 +374,8 @@ func (ir *ImageEngine) Push(ctx context.Context, source string, destination stri
 		options.SignaturePolicy,
 		writer,
 		options.Compress,
+		options.CompressionAlgorithm,
+		options.CompressionLevel,
 		signOptions,
 		&dockerRegistryOptions,
 		nil)
@@ -447,7 +449,7 @@ func (ir *ImageEngine) Save(ctx context.Context, nameOrID string, tags []string,
 	if err != nil {
 		return err
 	}
-	return newImage.Save(ctx, nameOrID, options.Format, options.Output, tags, options.Quiet, options.Compress, true)
+	return newImage.Save(ctx, nameOrID, options.Format, options.Output, tags, options.Quiet, options.Compress, options.CompressionAlgorithm, options.CompressionLevel, true)
 }
 
 func (ir *ImageEngine) Diff(_ context.Context, nameOrID string, _ entities.DiffOptions) (*entities.DiffReport, error) {

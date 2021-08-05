@@ -19,6 +19,7 @@ import (
 	"github.com/containers/podman/v2/cmd/podman/registry"
 	"github.com/containers/podman/v2/cmd/podman/utils"
 	"github.com/containers/podman/v2/pkg/domain/entities"
+	"github.com/containers/storage/pkg/archive"
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -38,6 +39,8 @@ type buildFlagsWrapper struct {
 
 	// SquashAll squashes all layers into a single layer.
 	SquashAll bool
+	// CompressionAlg changes buildah's compression algorithm for layers.
+	CompressionAlg string
 }
 
 var (
@@ -101,6 +104,7 @@ func buildFlags(cmd *cobra.Command) {
 
 	// Podman flags
 	flags.BoolVarP(&buildOpts.SquashAll, "squash-all", "", false, "Squash all layers into a single layer")
+	flags.StringVarP(&buildOpts.CompressionAlg, "compression-alg", "", "gzip", "Compression algorithm for layers: none, bzip2, gzip, xz, zstd")
 
 	// Bud flags
 	budFlags := buildahCLI.GetBudFlags(&buildOpts.BudResults)
@@ -390,7 +394,10 @@ func buildFlagsWrapperToOptions(c *cobra.Command, contextDir string, flags *buil
 		flags.Layers = false
 	}
 
-	compression := imagebuildah.Gzip
+	compression, err := parseCompressionAlgOption(flags.CompressionAlg)
+	if err != nil {
+		return nil, err
+	}
 	if flags.DisableCompression {
 		compression = imagebuildah.Uncompressed
 	}
@@ -525,4 +532,21 @@ func getDecryptConfig(decryptionKeys []string) (*encconfig.DecryptConfig, error)
 	}
 
 	return decConfig, nil
+}
+
+func parseCompressionAlgOption(alg string) (archive.Compression, error) {
+	switch alg {
+	case "none":
+		return imagebuildah.Uncompressed, nil
+	case "bzip2":
+		return imagebuildah.Bzip2, nil
+	case "gzip":
+		return imagebuildah.Gzip, nil
+	case "xz":
+		return imagebuildah.Xz, nil
+	case "zstd":
+		return imagebuildah.Zstd, nil
+	default:
+		return imagebuildah.Uncompressed, errors.New("Undefined compression algorithm")
+	}
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/containers/buildah/pkg/parse"
 	"github.com/containers/image/v5/docker/reference"
+	compression "github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/types"
 	podmanVersion "github.com/containers/podman/v2/version"
 )
@@ -49,6 +50,8 @@ func (o DockerRegistryOptions) GetSystemContext(parent *types.SystemContext, add
 		BigFilesTemporaryDir:        parse.GetTempDir(),
 	}
 	if parent != nil {
+		sc.CompressionFormat = parent.CompressionFormat
+		sc.CompressionLevel = parent.CompressionLevel
 		sc.SignaturePolicyPath = parent.SignaturePolicyPath
 		sc.AuthFilePath = parent.AuthFilePath
 		sc.DirForceCompress = parent.DirForceCompress
@@ -70,5 +73,13 @@ func GetSystemContext(signaturePolicyPath, authFilePath string, forceCompress bo
 	sc.DirForceCompress = forceCompress
 	sc.DockerRegistryUserAgent = fmt.Sprintf("libpod/%s", podmanVersion.Version)
 
+	return sc
+}
+
+func GetSystemContextWithCompression(signaturePolicyPath, authFilePath string, forceCompress bool, compressionAlgorithm *compression.Algorithm, compressionLevel *int) *types.SystemContext {
+	sc := GetSystemContext(signaturePolicyPath, authFilePath, forceCompress)
+
+	sc.CompressionFormat = compressionAlgorithm
+	sc.CompressionLevel = compressionLevel
 	return sc
 }

@@ -536,8 +536,10 @@ func actionFromNative(a C.uint32_t) (ScmpAction, error) {
 		return ActKill, nil
 	case C.C_ACT_KILL_PROCESS:
 		return ActKillProcess, nil
-	case C.C_ACT_KILL_THREAD:
-		return ActKillThread, nil
+		/*
+			case C.C_ACT_KILL_THREAD:
+				return ActKillThread, nil
+		*/
 	case C.C_ACT_TRAP:
 		return ActTrap, nil
 	case C.C_ACT_ERRNO:

@@ -23,6 +23,7 @@ import (
 	"github.com/containers/image/v5/manifest"
 	ociarchive "github.com/containers/image/v5/oci/archive"
 	"github.com/containers/image/v5/oci/layout"
+	compression "github.com/containers/image/v5/pkg/compression"
 	"github.com/containers/image/v5/pkg/shortnames"
 	is "github.com/containers/image/v5/storage"
 	"github.com/containers/image/v5/tarball"
@@ -816,7 +817,7 @@ func (i *Image) UntagImage(tag string) error {
 
 // PushImageToHeuristicDestination pushes the given image to "destination", which is heuristically parsed.
 // Use PushImageToReference if the destination is known precisely.
-func (i *Image) PushImageToHeuristicDestination(ctx context.Context, destination, manifestMIMEType, authFile, digestFile, signaturePolicyPath string, writer io.Writer, forceCompress bool, signingOptions SigningOptions, dockerRegistryOptions *DockerRegistryOptions, additionalDockerArchiveTags []reference.NamedTagged) error {
+func (i *Image) PushImageToHeuristicDestination(ctx context.Context, destination, manifestMIMEType, authFile, digestFile, signaturePolicyPath string, writer io.Writer, forceCompress bool, compressionAlgorithm *compression.Algorithm, compressionLevel *int, signingOptions SigningOptions, dockerRegistryOptions *DockerRegistryOptions, additionalDockerArchiveTags []reference.NamedTagged) error {
 	if destination == "" {
 		return errors.Wrapf(syscall.EINVAL, "destination image name must be specified")
 	}
@@ -834,12 +835,12 @@ func (i *Image) PushImageToHeuristicDestination(ctx context.Context, destination
 			return err
 		}
 	}
-	return i.PushImageToReference(ctx, dest, manifestMIMEType, authFile, digestFile, signaturePolicyPath, writer, forceCompress, signingOptions, dockerRegistryOptions, additionalDockerArchiveTags)
+	return i.PushImageToReference(ctx, dest, manifestMIMEType, authFile, digestFile, signaturePolicyPath, writer, forceCompress, compressionAlgorithm, compressionLevel, signingOptions, dockerRegistryOptions, additionalDockerArchiveTags)
 }
 
 // PushImageToReference pushes the given image to a location described by the given path
-func (i *Image) PushImageToReference(ctx context.Context, dest types.ImageReference, manifestMIMEType, authFile, digestFile, signaturePolicyPath string, writer io.Writer, forceCompress bool, signingOptions SigningOptions, dockerRegistryOptions *DockerRegistryOptions, additionalDockerArchiveTags []reference.NamedTagged) error {
-	sc := GetSystemContext(signaturePolicyPath, authFile, forceCompress)
+func (i *Image) PushImageToReference(ctx context.Context, dest types.ImageReference, manifestMIMEType, authFile, digestFile, signaturePolicyPath string, writer io.Writer, forceCompress bool, compressionAlgorithm *compression.Algorithm, compressionLevel *int, signingOptions SigningOptions, dockerRegistryOptions *DockerRegistryOptions, additionalDockerArchiveTags []reference.NamedTagged) error {
+	sc := GetSystemContextWithCompression(signaturePolicyPath, authFile, forceCompress, compressionAlgorithm, compressionLevel)
 	sc.BlobInfoCacheDir = filepath.Join(i.imageruntime.store.GraphRoot(), "cache")
 
 	policyContext, err := getPolicyContext(sc)
@@ -1596,7 +1597,7 @@ func (i *Image) Comment(ctx context.Context, manifestType string) (string, error
 }
 
 // Save writes a container image to the filesystem
-func (i *Image) Save(ctx context.Context, source, format, output string, moreTags []string, quiet, compress, removeSignatures bool) error {
+func (i *Image) Save(ctx context.Context, source, format, output string, moreTags []string, quiet, compress bool, compressionAlgorithm *compression.Algorithm, compressionLevel *int, removeSignatures bool) error {
 	var (
 		writer       io.Writer
 		destRef      types.ImageReference
@@ -1648,7 +1649,7 @@ func (i *Image) Save(ctx context.Context, source, format, output string, moreTag
 			return err
 		}
 	}
-	if err := i.PushImageToReference(ctx, destRef, manifestType, "", "", "", writer, compress, SigningOptions{RemoveSignatures: removeSignatures}, &DockerRegistryOptions{}, additionaltags); err != nil {
+	if err := i.PushImageToReference(ctx, destRef, manifestType, "", "", "", writer, compress, compressionAlgorithm, compressionLevel, SigningOptions{RemoveSignatures: removeSignatures}, &DockerRegistryOptions{}, additionaltags); err != nil {
 		return errors.Wrapf(err, "unable to save %q", source)
 	}
 	i.newImageEvent(events.Save)
